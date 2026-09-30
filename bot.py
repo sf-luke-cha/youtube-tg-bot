@@ -102,8 +102,24 @@ def download(url: str, kind: str, outdir: str) -> Path:
             ),
             merge_output_format="mp4",
         )
-    with yt_dlp.YoutubeDL(opts) as ydl:
-        ydl.download([url])
+    # YouTube often blocks datacenter IPs; some player clients still get through, so try several.
+    last_err = None
+    for clients in (None, ["tv", "web_safari"], ["web_embedded", "mweb"], ["android_vr"], ["ios"]):
+        o = dict(opts)
+        if clients:
+            o["extractor_args"] = {"youtube": {"player_client": clients}}
+        try:
+            with yt_dlp.YoutubeDL(o) as ydl:
+                ydl.download([url])
+            last_err = None
+            break
+        except yt_dlp.utils.DownloadError as e:
+            last_err = e
+            log.warning("clients %s failed: %s", clients, str(e)[:150])
+            for f in Path(outdir).iterdir():
+                f.unlink(missing_ok=True)
+    if last_err:
+        raise last_err
     files = [p for p in Path(outdir).iterdir() if p.is_file()]
     if not files:
         raise RuntimeError("Nothing downloaded (file may be over 50 MB).")
