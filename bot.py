@@ -31,7 +31,19 @@ if os.environ.get("COOKIES_JSON"):
     import json
 
     lines = ["# Netscape HTTP Cookie File"]
-    for c in json.loads(os.environ["COOKIES_JSON"]):
+    _raw = os.environ["COOKIES_JSON"].strip()
+    if _raw.startswith("["):
+        _cookies = json.loads(_raw)
+    else:  # a raw "Cookie: a=b; c=d" request header copied from DevTools
+        import time
+
+        _raw = _raw.removeprefix("Cookie:").strip()
+        _exp = int(time.time()) + 365 * 86400
+        _cookies = [
+            {"domain": ".youtube.com", "secure": True, "expirationDate": _exp, "name": k, "value": v}
+            for k, _, v in (p.strip().partition("=") for p in _raw.split(";") if "=" in p)
+        ]
+    for c in _cookies:
         lines.append("\t".join([
             c["domain"],
             "TRUE" if c["domain"].startswith(".") else "FALSE",
