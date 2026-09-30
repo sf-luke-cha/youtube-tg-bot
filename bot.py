@@ -78,6 +78,14 @@ else:
     log.info("no cookies loaded")
 
 
+def is_supported(url: str) -> bool:
+    """True if a specific yt-dlp extractor (not the catch-all Generic one) handles this URL."""
+    for ie in yt_dlp.extractor.gen_extractors():
+        if ie.ie_key() != "Generic" and ie.suitable(url):
+            return True
+    return False
+
+
 def allowed(update: Update) -> bool:
     return not ALLOWED or (update.effective_user and update.effective_user.id in ALLOWED)
 
@@ -154,6 +162,12 @@ async def on_link(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not m:
         await update.message.reply_text("Please send a valid link.")
         return
+    if not is_supported(m.group(0)):
+        await update.message.reply_text(
+            "❌ This link isn't supported. Send a video link from YouTube "
+            "(or another supported site like Instagram, TikTok, Facebook, X/Twitter)."
+        )
+        return
     key = uuid.uuid4().hex[:10]
     PENDING[key] = m.group(0)
     if len(PENDING) > 200:  # cap memory
@@ -207,7 +221,9 @@ async def on_choice(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception as e:
             log.exception("download failed")
             msg = str(e)
-            if "Sign in to confirm" in msg or "bot" in msg.lower() and "confirm" in msg.lower():
+            if "Unsupported URL" in msg:
+                msg = "This link isn't supported."
+            elif "Sign in to confirm" in msg or "bot" in msg.lower() and "confirm" in msg.lower():
                 msg = "YouTube blocked this server (needs cookies). Try again later."
             await q.edit_message_text(f"❌ Failed: {msg[:300]}")
         finally:
