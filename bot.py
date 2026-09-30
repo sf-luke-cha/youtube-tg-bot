@@ -25,7 +25,16 @@ TOKEN = os.environ["BOT_TOKEN"]
 MAX_BYTES = 50 * 1024 * 1024
 SAFE_BYTES = 48 * 1024 * 1024
 URL_RE = re.compile(r"https?://\S+")
-COOKIES_FILE = os.environ.get("COOKIES_FILE", "cookies.txt")
+COOKIES_SRC = os.environ.get("COOKIES_FILE", "/etc/secrets/cookies.txt")
+COOKIES_FILE = "/tmp/cookies.txt"  # yt-dlp rewrites the file; Render's secrets dir is read-only
+if os.environ.get("COOKIES_B64"):
+    import base64
+
+    Path(COOKIES_FILE).write_bytes(base64.b64decode(os.environ["COOKIES_B64"]))
+elif Path(COOKIES_SRC).is_file():
+    shutil.copy(COOKIES_SRC, COOKIES_FILE)
+elif Path("cookies.txt").is_file():
+    shutil.copy("cookies.txt", COOKIES_FILE)
 ALLOWED = {int(x) for x in os.environ.get("ALLOWED_USER_IDS", "").split(",") if x.strip()}
 
 # url store: short id -> url (callback_data is limited to 64 bytes)
