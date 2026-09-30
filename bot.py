@@ -27,7 +27,22 @@ SAFE_BYTES = 48 * 1024 * 1024
 URL_RE = re.compile(r"https?://\S+")
 COOKIES_SRC = os.environ.get("COOKIES_FILE", "/etc/secrets/cookies.txt")
 COOKIES_FILE = "/tmp/cookies.txt"  # yt-dlp rewrites the file; Render's secrets dir is read-only
-if os.environ.get("COOKIES_B64"):
+if os.environ.get("COOKIES_JSON"):
+    import json
+
+    lines = ["# Netscape HTTP Cookie File"]
+    for c in json.loads(os.environ["COOKIES_JSON"]):
+        lines.append("\t".join([
+            c["domain"],
+            "TRUE" if c["domain"].startswith(".") else "FALSE",
+            c.get("path", "/"),
+            "TRUE" if c.get("secure") else "FALSE",
+            str(int(c.get("expirationDate", 0))),
+            c["name"],
+            c["value"],
+        ]))
+    Path(COOKIES_FILE).write_text("\n".join(lines) + "\n")
+elif os.environ.get("COOKIES_B64"):
     import base64
 
     Path(COOKIES_FILE).write_bytes(base64.b64decode(os.environ["COOKIES_B64"]))
