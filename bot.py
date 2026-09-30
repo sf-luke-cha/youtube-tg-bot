@@ -37,7 +37,7 @@ if os.environ.get("COOKIES_JSON"):
             "TRUE" if c["domain"].startswith(".") else "FALSE",
             c.get("path", "/"),
             "TRUE" if c.get("secure") else "FALSE",
-            str(int(c.get("expirationDate", 0))),
+            str(int(c.get("expirationDate") or c.get("expires", 0) / (1000 if c.get("expires", 0) > 1e11 else 1))),
             c["name"],
             c["value"],
         ]))
@@ -56,6 +56,14 @@ ALLOWED = {int(x) for x in os.environ.get("ALLOWED_USER_IDS", "").split(",") if 
 PENDING: dict[str, str] = {}
 # one download at a time keeps us inside the free tier's 512 MB RAM
 DL_LOCK = asyncio.Lock()
+
+
+if Path(COOKIES_FILE).is_file():
+    _names = {ln.split("\t")[5] for ln in Path(COOKIES_FILE).read_text().splitlines() if ln.count("\t") >= 6}
+    _login = sorted(_names & {"SID", "SAPISID", "__Secure-1PSID", "__Secure-3PSID", "LOGIN_INFO"})
+    log.info("cookies loaded: %d, login cookies present: %s", len(_names), _login or "NONE (logged out, will not bypass bot check)")
+else:
+    log.info("no cookies loaded")
 
 
 def allowed(update: Update) -> bool:
